@@ -12,6 +12,8 @@ def executa_query(query):
     try:
         result = connection.execute(query)
         df = pd.DataFrame(result.fetchall(), columns=result.keys())
+        df = df.loc[:,~df.columns.duplicated()].copy()
+        print(df)
         st.table(df)
     except:
         st.error("Erro ao executar a query")
@@ -24,7 +26,9 @@ def show_query(query_result):
 with open('consultas.json') as file:
     queries = json.load(file)
 
-engine = create_engine('postgresql://postgres:123@localhost:5432/postgres')
+engine = create_engine('postgresql://postgres:Rasengan2003!@localhost:5432/ProjetoBD')
+#engine = create_engine('postgresql://usuario:senha@localhost:5432/nome_do_bd')
+#
 
 # Test the connection
 connection = engine.connect() 
@@ -67,6 +71,7 @@ with cols[0]:
         executa_query(query)
     
 with cols[1]:
+    st.subheader("Queries pré-definidas")
     option = st.selectbox(
         "Escolha uma das queries abaixo",
         (queries.keys()),
@@ -124,11 +129,27 @@ with cols[1]:
     df = pd.read_sql_query(query, connection)
     colunas = df.columns.tolist()
     r_coluna_selecionada = st.selectbox("Selecione a coluna para visualizar:", colunas)
+    numero_joins = int(st.number_input("Digite o número de joins (0 se nenhum):", format="%f", key="joins"))
+    
+    r_tab_join = [r_tabela_selecionada]
+    r_cols_join = [r_coluna_selecionada]
+    join_query = ""
+    for i in range(numero_joins):
+        r_tab_join.append(st.selectbox(f"Selecione a tabela de join {i+1}:", r_tabelas))
+        query = f"SELECT * FROM {r_tab_join[i]} LIMIT 0"
+        df = pd.read_sql_query(query, connection)
+        colunas = df.columns.tolist()
+        r_cols_join.append(st.selectbox(f"Selecione a coluna de join {i+1}:", colunas))
+        join_query += f" JOIN {r_tab_join[i+1]} ON {r_tab_join[i]}.{r_cols_join[i]} = {r_tab_join[i+1]}.{r_cols_join[i+1]}"
+        
 
-    query_read = f'SELECT {r_coluna_selecionada} FROM {r_tabela_selecionada}'
-    query_result = pd.read_sql_query(query_read, connection)
-    st.table(query_result)
+    query_read = f'SELECT * FROM {r_tabela_selecionada}' + join_query + ";"
+    r_button = st.button("Executar Query", type="primary", key = "read_Button")
+    if r_button:
+        print(query_read)
+        executa_query(query_read)
 
+    
 ############################## UPDATE #####################################################
 with cols[0]:    
     st.subheader("Função UPDATE")
@@ -144,7 +165,7 @@ with cols[0]:
         resultado_colunas = conn.execute(consulta_colunas, {'table_name': u_tabela_selecionada}).fetchall()
     colunas = [coluna[0] for coluna in resultado_colunas]
 
-    u_id_para_atualizar = st.number_input("Digite o ID da linha para atualizar:", format="%f")
+    u_id_para_atualizar = st.number_input("Digite o ID da linha para atualizar:", format="%f", key = "update")
 
     u_coluna_selecionada = st.selectbox("Selecione a coluna para atualização:", colunas)
 
@@ -177,11 +198,7 @@ with cols[1]:
         resultado_colunas = conn.execute(consulta_colunas, {'table_name': d_tabela_selecionada}).fetchall()
     colunas = [coluna[0] for coluna in resultado_colunas]
 
-    d_id_para_atualizar = st.number_input("Digite o ID da linha para atualizar:", format="%f")
-
-    d_coluna_selecionada = st.selectbox("Selecione a coluna para atualização:", colunas)
-
-    
+    d_coluna_selecionada = st.selectbox("Selecione a coluna para atualização:", colunas, key = "delete")
 
         # Passo 3: Especificar o Valor
     d_valor = st.text_input("Digite o valor para identificar as linhas a serem deletadas:")
@@ -190,7 +207,7 @@ with cols[1]:
     if st.button("Deletar Linhas"):
         with engine.connect() as conn:
             query_delete = text(f"DELETE FROM {d_tabela_selecionada} WHERE {d_coluna_selecionada} = {d_valor}")
-            conn.execute(query_delete, valor=d_valor)
+            conn.execute(query_delete)
             conn.commit()
             st.success("Linhas deletadas com sucesso!")
 
