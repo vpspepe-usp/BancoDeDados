@@ -1,4 +1,3 @@
-import customtkinter as ctk
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
 import sqlalchemy
@@ -26,7 +25,7 @@ def show_query(query_result):
 with open('consultas.json') as file:
     queries = json.load(file)
 
-engine = create_engine('postgresql://postgres:Rasengan2003!@localhost:5432/ProjetoBD')
+engine = create_engine('postgresql://postgres:postgres@localhost:5432/ProjetoBD')
 #engine = create_engine('postgresql://usuario:senha@localhost:5432/nome_do_bd')
 #
 
@@ -128,26 +127,29 @@ with cols[1]:
     query = f"SELECT * FROM {r_tabela_selecionada} LIMIT 0"  # Uma forma de obter os nomes das colunas sem dados
     df = pd.read_sql_query(query, connection)
     colunas = df.columns.tolist()
-    r_coluna_selecionada = st.selectbox("Selecione a coluna para visualizar:", colunas)
     numero_joins = int(st.number_input("Digite o número de joins (0 se nenhum):", format="%f", key="joins"))
     
     r_tab_join = [r_tabela_selecionada]
-    r_cols_join = [r_coluna_selecionada]
+    r_cols_join = []
+    cols_anterior = colunas
     join_query = ""
     for i in range(numero_joins):
         r_tab_join.append(st.selectbox(f"Selecione a tabela de join {i+1}:", r_tabelas))
-        query = f"SELECT * FROM {r_tab_join[i]} LIMIT 0"
+        query = f"SELECT * FROM {r_tab_join[i+1]} LIMIT 0"
         df = pd.read_sql_query(query, connection)
         colunas = df.columns.tolist()
         r_cols_join.append(st.selectbox(f"Selecione a coluna de join {i+1}:", colunas))
-        join_query += f" JOIN {r_tab_join[i+1]} ON {r_tab_join[i]}.{r_cols_join[i]} = {r_tab_join[i+1]}.{r_cols_join[i+1]}"
-        
-
-    query_read = f'SELECT * FROM {r_tabela_selecionada}' + join_query + ";"
-    r_button = st.button("Executar Query", type="primary", key = "read_Button")
-    if r_button:
-        print(query_read)
-        executa_query(query_read)
+        if r_cols_join[i] not in cols_anterior:
+            st.error(f"A coluna de join devem estar em: {cols_anterior}")
+            break
+        cols_anterior = colunas
+        join_query += f" INNER JOIN {r_tab_join[i+1]} ON {r_tab_join[i+1]}.{r_cols_join[i]} = {r_tab_join[i]}.{r_cols_join[i]}"
+    else:
+        query_read = f'SELECT * FROM {r_tabela_selecionada}' + join_query + ";"
+        r_button = st.button("Executar Query", type="primary", key = "read_Button")
+        if r_button:
+            print(query_read)
+            executa_query(query_read)
 
     
 ############################## UPDATE #####################################################
