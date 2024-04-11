@@ -16,11 +16,15 @@ def executa_query(query):
     except:
         st.error("Erro ao executar a query")
 
+def show_query(query_result):
+    df = pd.DataFrame(query_result.fetchall(), columns=query_result.keys())
+    st.table(df)
+
 # Read the JSON file
 with open('consultas.json') as file:
     queries = json.load(file)
 
-engine = create_engine('postgresql://postgres:Rasengan2003!@localhost:5432/ProjetoBD')
+engine = create_engine('postgresql://postgres:123@localhost:5432/postgres')
 
 # Test the connection
 connection = engine.connect() 
@@ -31,7 +35,7 @@ print("Connected successfully!")
 
 
 st.set_page_config(
-    page_title="Sistema de Gerenciamento de Eletrônicos",
+    page_title="Sistema de Gerenciamento de Componentes Eletrônicos",
     layout="wide",
     initial_sidebar_state="expanded",
     page_icon="Back.jpg"
@@ -57,7 +61,8 @@ if hide_image:
 cols = st.columns(2)
 
 with cols[0]:
-    query = st.text_area(r'''Insira sua query SQL aqui ''')
+    st.subheader("Insira sua Query SQL aqui!")
+    query = st.text_area("")
     if st.button("Executar Query", type="primary"):
         executa_query(query)
     
@@ -70,6 +75,125 @@ with cols[1]:
     )
     if st.button("Executar Query listada", type="primary"):
         executa_query(queries[option])
+
+############################## CREATE #####################################################
+
+with cols[0]:
+    st.subheader("Função CREATE")
+
+    c_query_tabelas = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+    c_tabelas_df = pd.read_sql_query(c_query_tabelas, connection)
+    c_tabelas = c_tabelas_df['table_name'].tolist()
+    c_tabela_selecionada = st.selectbox("Selecione uma tabela:", c_tabelas)
+
+    # 2. Leitura das colunas
+    query_colunas = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{c_tabela_selecionada}'"
+    c_colunas_df = pd.read_sql_query(query_colunas, connection)
+    c_colunas = c_colunas_df['column_name'].tolist()
+    c_tipos = c_colunas_df['data_type'].tolist()
+
+    # 3. Coleta de entradas do usuário
+    valores = []
+    for coluna, tipo in zip(c_colunas, c_tipos):
+        if tipo == 'integer':
+            valor = st.number_input(f"Digite o valor para {coluna} (float):", format="%f", key=coluna)
+        else:
+            valor = st.text_input(f"Digite o valor para {coluna}:", key=coluna)
+        # Adicione condições para outros tipos conforme necessário
+        valores.append(valor)
+    # 4. Inserção dos dados no banco de dados
+    if st.button("Inserir dados",type="primary"):
+        colunas_str = ", ".join(c_colunas)
+        valores_formatados = ", ".join([f"'{v}'" if isinstance(v, str) else str(v) for v in valores])
+        query_insert = text(f"INSERT INTO {c_tabela_selecionada} ({colunas_str}) VALUES ({valores_formatados})")
+        connection.execute(query_insert)
+        connection.commit()
+        st.success("Dados inseridos com sucesso!")
+    
+############################## READ #####################################################
+
+with cols[1]:
+    st.subheader("Função READ")
+
+    r_query_tabelas = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+    r_tabelas_df = pd.read_sql_query(r_query_tabelas, connection)
+    r_tabelas = r_tabelas_df['table_name'].tolist()
+    r_tabela_selecionada = st.selectbox("Selecione a tabela:", r_tabelas)
+
+    query = f"SELECT * FROM {r_tabela_selecionada} LIMIT 0"  # Uma forma de obter os nomes das colunas sem dados
+    df = pd.read_sql_query(query, connection)
+    colunas = df.columns.tolist()
+    r_coluna_selecionada = st.selectbox("Selecione a coluna para visualizar:", colunas)
+
+    query_read = f'SELECT {r_coluna_selecionada} FROM {r_tabela_selecionada}'
+    query_result = pd.read_sql_query(query_read, connection)
+    st.table(query_result)
+
+############################## UPDATE #####################################################
+with cols[0]:    
+    st.subheader("Função UPDATE")
+
+    u_query_tabelas = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+    u_tabelas_df = pd.read_sql_query(u_query_tabelas, connection)
+    u_tabelas = u_tabelas_df['table_name'].tolist()
+    u_tabela_selecionada = st.selectbox("Selecione a Tabela:", u_tabelas)
+
+    # Passo 2: Selecionar a Coluna
+    with engine.connect() as conn:
+        consulta_colunas = text(f"SELECT column_name FROM information_schema.columns WHERE table_name = '{u_tabela_selecionada}'")
+        resultado_colunas = conn.execute(consulta_colunas, {'table_name': u_tabela_selecionada}).fetchall()
+    colunas = [coluna[0] for coluna in resultado_colunas]
+
+    u_id_para_atualizar = st.number_input("Digite o ID da linha para atualizar:", format="%f")
+
+    u_coluna_selecionada = st.selectbox("Selecione a coluna para atualização:", colunas)
+
+    
+
+    # Passo 4: Fornecer Novo Valor
+    u_novo_valor = st.text_input(f"Digite o novo valor para {u_coluna_selecionada}:", "")
+
+    # Passo 5: Executar a Operação de Atualização
+    if st.button("Atualizar",type="primary"):
+        with engine.connect() as conn:
+            consulta_update = text(f"UPDATE {u_tabela_selecionada} SET {u_coluna_selecionada} = '{text(u_novo_valor)}' WHERE {'id_'+u_tabela_selecionada} = {u_id_para_atualizar}")
+            print(consulta_update)
+            conn.execute(consulta_update)
+            conn.commit()
+        st.success("Linha atualizada com sucesso!")
+
+############################## DELETE #####################################################
+with cols[1]:    
+    st.subheader("Função DELETE")
+
+    d_query_tabelas = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+    d_tabelas_df = pd.read_sql_query(d_query_tabelas, connection)
+    d_tabelas = d_tabelas_df['table_name'].tolist()
+    d_tabela_selecionada = st.selectbox("SELECIONA A TABELA", d_tabelas)
+
+    # Passo 2: Selecionar a Coluna
+    with engine.connect() as conn:
+        consulta_colunas = text(f"SELECT column_name FROM information_schema.columns WHERE table_name = '{d_tabela_selecionada}'")
+        resultado_colunas = conn.execute(consulta_colunas, {'table_name': d_tabela_selecionada}).fetchall()
+    colunas = [coluna[0] for coluna in resultado_colunas]
+
+    d_id_para_atualizar = st.number_input("Digite o ID da linha para atualizar:", format="%f")
+
+    d_coluna_selecionada = st.selectbox("Selecione a coluna para atualização:", colunas)
+
+    
+
+        # Passo 3: Especificar o Valor
+    d_valor = st.text_input("Digite o valor para identificar as linhas a serem deletadas:")
+
+    # Passo 4: Executar a Operação de Deleção
+    if st.button("Deletar Linhas"):
+        with engine.connect() as conn:
+            query_delete = text(f"DELETE FROM {d_tabela_selecionada} WHERE {d_coluna_selecionada} = {d_valor}")
+            conn.execute(query_delete, valor=d_valor)
+            conn.commit()
+            st.success("Linhas deletadas com sucesso!")
+
 
 st.markdown(
     """
@@ -88,7 +212,7 @@ div[class*="stSelectbox"] label {
     unsafe_allow_html=True,
 )
 
-
+connection.close()
 
 
 
