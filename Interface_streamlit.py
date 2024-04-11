@@ -84,7 +84,7 @@ with cols[1]:
 ############################## CREATE #####################################################
 
 with cols[0]:
-    st.subheader("Função CREATE")
+    st.subheader("Inserir Dados")
 
     c_query_tabelas = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
     c_tabelas_df = pd.read_sql_query(c_query_tabelas, connection)
@@ -118,7 +118,7 @@ with cols[0]:
 ############################## READ #####################################################
 
 with cols[1]:
-    st.subheader("Função READ")
+    st.subheader("Consultar Dados")
 
     r_query_tabelas = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
     r_tabelas_df = pd.read_sql_query(r_query_tabelas, connection)
@@ -152,7 +152,7 @@ with cols[1]:
     
 ############################## UPDATE #####################################################
 with cols[0]:    
-    st.subheader("Função UPDATE")
+    st.subheader("Atualizar Dados")
 
     u_query_tabelas = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
     u_tabelas_df = pd.read_sql_query(u_query_tabelas, connection)
@@ -185,7 +185,7 @@ with cols[0]:
 
 ############################## DELETE #####################################################
 with cols[1]:    
-    st.subheader("Função DELETE")
+    st.subheader("Deletar Dados")
 
     d_query_tabelas = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
     d_tabelas_df = pd.read_sql_query(d_query_tabelas, connection)
